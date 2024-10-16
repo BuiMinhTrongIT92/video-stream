@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Video Upload & M3U8 Creation</title>
+    <link href="https://vjs.zencdn.net/8.16.1/video-js.css" rel="stylesheet"/>
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+            crossorigin="anonymous"
+    />
+    <style>
+        /* Custom styling to ensure full responsiveness */
+        .video-card {
+            max-width: 100%;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+        }
+
+        .card {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <div class="row">
+        <!-- Video Upload Section -->
+        <div class="col-md-4 mb-3">
+            <div class="card p-3">
+                <h2 class="alert alert-success text-center">Import Video</h2>
+                <input type="file" id="fileInput" class="form-control mb-2"/>
+                <button onclick="uploadFile()" class="btn btn-primary w-100">
+                    Upload
+                    <div
+                            id="waiting"
+                            class="spinner-border spinner-border-sm d-none"
+                    ></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- M3U8 Creation Section -->
+        <div class="col-md-8 mb-3">
+            <div class="card p-3">
+                <h2 class="alert alert-success text-center">Create M3U8</h2>
+                <input
+                        type="text"
+                        id="nameTitle"
+                        class="form-control mb-2"
+                        placeholder="Enter video name"
+                />
+                <button onclick="createM3U8()" class="btn btn-primary w-100">
+                    Create
+                    <div
+                            id="waiting2"
+                            class="spinner-border spinner-border-sm d-none"
+                    ></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Video Player Section -->
+        <div class="col-md-12 mb-3">
+            <div class="card p-3">
+                <h2 class="alert alert-success text-center">Video Player</h2>
+                <div class="text-center">
+                    <button onclick="loadVideo()" class="btn btn-primary mb-3">Play</button>
+                    <div class="card p-3 video-card">
+                        <div class="ratio ratio-16x9">
+                            <video
+                                    id="my-video"
+                                    class="video-js"
+                                    controls
+                                    preload="auto"
+                                    width="auto"
+                                    height="auto"
+                                    data-setup="{}"
+                            >
+                                <source type="application/x-mpegURL"/>
+                                <p class="vjs-no-js">
+                                    To view this video, please enable JavaScript, and consider
+                                    upgrading to a web browser that supports HTML5 video.
+                                </p>
+                            </video>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript functions for upload, create, and load video -->
+<script>
+    let domain = "13.239.32.232:8089";
+    var player;
+    window.onload = () => {
+        player = videojs("my-video");
+    };
+
+    function uploadFile() {
+        const waiting = document.getElementById("waiting");
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Please select a file first!");
+            return;
+        }
+
+        waiting.classList.remove("d-none");
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        fetch(`http://${domain}/videostream/file`, {
+            method: "POST",
+            body: formData,
+        })
+            .then((response) =>
+                response.ok ? response.json() : Promise.reject("Upload failed")
+            )
+            .then((data) => {
+                alert("File uploaded successfully!");
+                console.log("Response:", data);
+            })
+            .catch((error) => console.error("Upload error:", error))
+            .finally(() => waiting.classList.add("d-none"));
+    }
+
+    function createM3U8() {
+        const waiting2 = document.getElementById("waiting2");
+        const videoName = document.getElementById("nameTitle").value;
+
+        if (!videoName) {
+            alert("Please enter a video name.");
+            return;
+        }
+
+        waiting2.classList.remove("d-none");
+
+        fetch(`http://${domain}/videostream/stream/${videoName}`, {
+            method: "GET",
+        })
+            .then((response) =>
+                response.ok ? response.json() : Promise.reject("Creation failed")
+            )
+            .then((data) => {
+                alert("M3U8 created successfully!");
+                console.log("Response:", data);
+            })
+            .catch((error) => console.error("M3U8 creation error:", error))
+            .finally(() => waiting2.classList.add("d-none"));
+    }
+
+    function loadVideo() {
+        const videoName = document.getElementById("nameTitle").value;
+
+        if (!videoName) {
+            alert("Please enter a video name.");
+            return;
+        }
+
+        let getM3U8 = `http://${domain}/videostream/m3u8/${videoName}`;
+        console.log(getM3U8);
+        fetch(getM3U8, {
+            method: "GET",
+        })
+            .then((response) => response.blob())
+            .then((data) => {
+                const url = URL.createObjectURL(data);
+                player.src({
+                    type: "application/x-mpegURL",
+                    src: url,
+                });
+                player.play();
+            })
+            .catch((error) => console.error("M3U8 creation error:", error))
+            .finally(() => waiting2.classList.add("d-none"));
+    }
+</script>
+
+<!-- Video.js -->
+<script src="https://vjs.zencdn.net/8.16.1/video.min.js"></script>
+</body>
+</html>
